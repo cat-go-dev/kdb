@@ -1,0 +1,28 @@
+#!/bin/bash
+
+echo "Running pre-commit checks..."
+
+# Форматирование кода
+echo "Running go fmt..."
+go fmt ./...
+
+# Линтинг
+echo "Running golangci-lint..."
+golangci-lint run
+
+# Запуск тестов
+echo "Running go test..."
+go test ./...
+
+# Проверка зависимостей
+echo "Running go mod tidy..."
+go mod tidy
+
+# Если что-то пошло не так, прерываем коммит
+if [ $? -ne 0 ]; then
+  echo "Commit aborted due to errors."
+  exit 1
+fi
+
+echo "All checks passed. Proceeding with commit."
+exit 0
