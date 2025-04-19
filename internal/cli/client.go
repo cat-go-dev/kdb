@@ -46,8 +46,6 @@ func (c Client) Run(ctx context.Context) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	reader := bufio.NewReader(os.Stdin)
-
 	commandCh := make(chan string)
 	exitCh := make(chan struct{})
 	defer func() {
@@ -57,28 +55,9 @@ func (c Client) Run(ctx context.Context) error {
 	}()
 
 	for {
+		c.readInput(ctx, commandCh, exitCh)
+
 		fmt.Print(commandPrefix)
-
-		go func() {
-			command, err := reader.ReadString('\n')
-			if err != nil {
-				wErr := fmt.Errorf("read command: %w", err)
-				logAttrs = append(logAttrs, slog.String("raw_command", command))
-				c.logger.ErrorContext(ctx, wErr.Error(), logAttrs...)
-				fmt.Printf("%ssomething went wrong \r\n", commandPrefix)
-				return
-			}
-
-			preparedCommand := strings.ReplaceAll(command, "\r", "")
-			preparedCommand = strings.ReplaceAll(preparedCommand, "\n", "")
-
-			if preparedCommand == commandExit {
-				exitCh <- struct{}{}
-				return
-			}
-
-			commandCh <- preparedCommand
-		}()
 
 		select {
 		case command := <-commandCh:
@@ -91,6 +70,38 @@ func (c Client) Run(ctx context.Context) error {
 			return errCanceledContext
 		}
 	}
+}
+
+func (c Client) readInput(ctx context.Context, commandCh chan<- string, exitCh chan<- struct{}) {
+	logAttrs := []any{
+		slog.String("component", "cli"),
+		slog.String("method", "run"),
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	go func() {
+		command, err := reader.ReadString('\n')
+		if err != nil {
+			wErr := fmt.Errorf("read command: %w", err)
+			logAttrs = append(logAttrs, slog.String("raw_command", command))
+			c.logger.ErrorContext(ctx, wErr.Error(), logAttrs...)
+			fmt.Printf("%ssomething went wrong \r\n", commandPrefix)
+			return
+		}
+
+		preparedCommand := strings.ReplaceAll(command, "\r", "")
+		preparedCommand = strings.ReplaceAll(preparedCommand, "\n", "")
+
+		if preparedCommand == commandExit {
+			exitCh <- struct{}{}
+			return
+		}
+
+		commandCh <- preparedCommand
+	}()
+
+	return
 }
 
 func (c Client) executeCommand(ctx context.Context, command string) string {
