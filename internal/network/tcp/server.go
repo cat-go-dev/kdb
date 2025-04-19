@@ -89,18 +89,15 @@ func (s *Server) Run(ctx context.Context) error {
 					if r := recover(); r != nil {
 						s.logger.ErrorContext(ctx, "caught panic: %s", r)
 					}
-				}()
-				defer func() {
+
 					s.logger.InfoContext(ctx, fmt.Sprintf("conn %v is closed", conn.RemoteAddr().String()), logAttrs...)
 					delete(s.conns, conn.RemoteAddr().String())
 					conn.Close()
+
 				}()
 
-				if len(s.conns) == int(s.opts.MaxConnections) {
-					logAttrs = append(logAttrs, slog.String("remote_addr", conn.RemoteAddr().String()))
-					s.logger.WarnContext(ctx, "connection limit reached", logAttrs...)
-
-					err := s.rejectMaxConnCount(ctx, conn)
+				if s.isMaxConnLimitReached() {
+					err := s.rejectConnByMaxConnCount(ctx, conn)
 					if err != nil {
 						s.logger.ErrorContext(ctx, fmt.Errorf("trying to reject connection: %w", err).Error(), logAttrs...)
 					}
@@ -108,10 +105,7 @@ func (s *Server) Run(ctx context.Context) error {
 					return
 				}
 
-				s.conns[conn.RemoteAddr().String()] = struct{}{}
-
-				s.logger.InfoContext(ctx, fmt.Sprintf("new conn %v", conn.RemoteAddr().String()), logAttrs...)
-
+				s.registerConnection(ctx, conn)
 				err = s.handleConnection(ctx, conn)
 				if err != nil {
 					s.logger.ErrorContext(ctx, fmt.Errorf("trying to handle connection: %w", err).Error(), logAttrs...)
@@ -148,7 +142,7 @@ func (s *Server) getConnections(ctx context.Context, listener net.Listener) <-ch
 	return connCh
 }
 
-func (s Server) handleConnection(ctx context.Context, conn net.Conn) error {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn) error {
 	logAttrs := []any{
 		slog.String("component", "tcp_server"),
 		slog.String("method", "handleConnection"),
@@ -187,11 +181,14 @@ func (s Server) handleConnection(ctx context.Context, conn net.Conn) error {
 	}
 }
 
-func (s Server) rejectMaxConnCount(ctx context.Context, conn net.Conn) error {
+func (s *Server) rejectConnByMaxConnCount(ctx context.Context, conn net.Conn) error {
 	logAttrs := []any{
 		slog.String("component", "tcp_server"),
 		slog.String("method", "rejectMaxConnCount"),
+		slog.String("remote_addr", conn.RemoteAddr().String()),
 	}
+
+	s.logger.WarnContext(ctx, "connection limit reached", logAttrs...)
 
 	response := fmt.Sprintf("max connection limit reached\n")
 
@@ -205,7 +202,22 @@ func (s Server) rejectMaxConnCount(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s Server) getAddress() string {
+func (s *Server) isMaxConnLimitReached() bool {
+	return len(s.conns) == int(s.opts.MaxConnections)
+}
+
+func (s *Server) registerConnection(ctx context.Context, conn net.Conn) {
+	logAttrs := []any{
+		slog.String("component", "tcp_server"),
+		slog.String("method", "registerConnection"),
+		slog.String("remote_addr", conn.RemoteAddr().String()),
+	}
+
+	s.conns[conn.RemoteAddr().String()] = struct{}{}
+	s.logger.InfoContext(ctx, fmt.Sprintf("new conn %v", conn.RemoteAddr().String()), logAttrs...)
+}
+
+func (s *Server) getAddress() string {
 	host := defaultHost
 	if s.opts != nil && s.opts.Host != "" {
 		host = s.opts.Host
