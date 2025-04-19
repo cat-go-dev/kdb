@@ -2,11 +2,11 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log/slog"
-
 	"kdb/internal/database/compute"
 	"kdb/internal/ports"
+	"log/slog"
 )
 
 type Database struct {
@@ -24,6 +24,10 @@ type StorageLayer interface {
 func NewDatabase(compute *compute.Compute, storage StorageLayer, logger *slog.Logger) (*Database, error) {
 	if compute == nil {
 		return nil, errInvalidCompute
+	}
+
+	if storage == nil {
+		return nil, errInvalidStorage
 	}
 
 	if logger == nil {
@@ -45,7 +49,7 @@ func (d Database) Execute(ctx context.Context, commandStr string) (*ports.Result
 
 	command, err := d.compute.Parse(ctx, commandStr)
 	if err != nil {
-		wErr := fmt.Errorf("compute parse: %w", err)
+		wErr := fmt.Errorf("%s: %w", errComputeParse, err)
 		d.logger.ErrorContext(ctx, wErr.Error(), logAttrs...)
 		return nil, err
 	}
@@ -53,7 +57,6 @@ func (d Database) Execute(ctx context.Context, commandStr string) (*ports.Result
 	return d.executeCommand(ctx, command)
 }
 
-// todo: make test
 func (d Database) executeCommand(ctx context.Context, command *compute.Command) (*ports.Result, error) {
 	logAttrs := []any{
 		slog.String("component", "database"),
@@ -74,6 +77,8 @@ func (d Database) executeCommand(ctx context.Context, command *compute.Command) 
 	case command.Type.IsDel():
 		err = d.storage.Del(ctx, string(command.Arguments.Key))
 		logAttrs = append(logAttrs, slog.String("storage method", "del"))
+	default:
+		err = errors.Join(errUnknownCommand)
 	}
 
 	if err != nil {

@@ -2,6 +2,7 @@ package compute
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 )
@@ -38,7 +39,7 @@ func (c Compute) Parse(ctx context.Context, query string) (*Command, error) {
 
 	commandType, err := c.getCommandType(tokens[0])
 	if err != nil {
-		c.logger.InfoContext(ctx, err.Error(), logAttrs...)
+		c.logger.InfoContext(ctx, fmt.Errorf("get command type: %w", err).Error(), logAttrs...)
 		return nil, err
 	}
 
