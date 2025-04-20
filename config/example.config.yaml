@@ -9,3 +9,9 @@ network:
 logging:
   level: "info"
   output_dir: "logs"
+wal:  
+  flushing:
+    batch_size: 100
+    batch_timeout: "10ms"
+  max_segment_size: "10MB"
+  data_directory: "/data/kdb/wal"

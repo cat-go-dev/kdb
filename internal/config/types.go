@@ -4,6 +4,7 @@ type Config struct {
 	Engine  Engine  `mapstructure:"engine"`
 	Network Network `mapstructure:"network"`
 	Logging Logging `mapstructure:"logging"`
+	WAL     WAL     `mapstructure:"wal"`
 }
 
 type Engine struct {
@@ -19,6 +20,17 @@ type Network struct {
 }
 
 type Logging struct {
-	Level  string `mapstructure:"level"`
+	Level     string `mapstructure:"level"`
 	OutputDir string `mapstructure:"output_dir"`
+}
+
+type WAL struct {
+	Flushing       Flushing `mapstructure:"flushing"`
+	MaxSegmentSize string   `mapstructure:"max_segment_size"`
+	DataDitrectory string   `mapstructure:"data_directory"`
+}
+
+type Flushing struct {
+	BatchSize    int    `mapstructure:"batch_size"`
+	BatchTimeout string `mapstructure:"batch_timeout"`
 }

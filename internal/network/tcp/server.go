@@ -87,7 +87,7 @@ func (s *Server) Run(ctx context.Context) error {
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
-						s.logger.ErrorContext(ctx, "caught panic: %s", r)
+						s.logger.ErrorContext(ctx, "caught panic: %v", r)
 					}
 
 					s.logger.InfoContext(ctx, fmt.Sprintf("conn %v is closed", conn.RemoteAddr().String()), logAttrs...)

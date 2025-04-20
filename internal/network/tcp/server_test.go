@@ -1,15 +1,14 @@
 package tcp
 
 import (
-	"bytes"
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"kdb/internal/network/tcp/mocks"
+	"kdb/internal/utils"
+	"kdb/mocks"
 )
 
 func TestNewServerEmptyExecutor(t *testing.T) {
@@ -25,8 +24,7 @@ func TestNewServerEmptyLogger(t *testing.T) {
 
 func TestNewServerSuccess(t *testing.T) {
 	executor := mocks.NewExecutor(t)
-	buf := new(bytes.Buffer)
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	logger := utils.NewMockedLogger()
 
 	_, err := NewServer(executor, logger, &ServerOpts{})
 	assert.NoError(t, err)
@@ -36,8 +34,7 @@ func TestRunServerInvalidAddress(t *testing.T) {
 	ctx := context.Background()
 
 	executor := mocks.NewExecutor(t)
-	buf := new(bytes.Buffer)
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	logger := utils.NewMockedLogger()
 
 	expectedErr := errTryingToRunServer.Error()
 
@@ -52,13 +49,12 @@ func TestRunServerInvalidAddress(t *testing.T) {
 }
 
 func TestExitWithContextTimeout(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	executor := mocks.NewExecutor(t)
-	buf := new(bytes.Buffer)
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	logger := utils.NewMockedLogger()
 
-	expectedErr := errTryingToRunServer.Error()
+	expectedErr := errCanceledContext.Error()
 
 	server, err := NewServer(executor, logger, &ServerOpts{
 		Host: "localhost",
@@ -67,6 +63,6 @@ func TestExitWithContextTimeout(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = server.Run(ctx)
-	assert.ErrorContains(t, err, expectedErr)
 	cancel()
+	assert.ErrorContains(t, err, expectedErr)
 }
