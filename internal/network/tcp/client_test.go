@@ -1,12 +1,12 @@
 package tcp
 
 import (
-	"bytes"
 	"context"
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"kdb/internal/utils"
 )
 
 func TestNewClientEmptyLogger(t *testing.T) {
@@ -15,8 +15,7 @@ func TestNewClientEmptyLogger(t *testing.T) {
 }
 
 func TestNewClientSuccess(t *testing.T) {
-	buf := new(bytes.Buffer)
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	logger := utils.NewMockedLogger()
 
 	_, err := NewClient(logger, nil)
 	assert.NoError(t, err)
@@ -26,8 +25,7 @@ func TestRunWithInvalidAddress(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	buf := new(bytes.Buffer)
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	logger := utils.NewMockedLogger()
 
 	client, err := NewClient(logger, &ClientOpts{
 		Server: "123.123.123.123",

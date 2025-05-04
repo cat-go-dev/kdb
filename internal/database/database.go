@@ -12,6 +12,7 @@ import (
 type Database struct {
 	compute *compute.Compute
 	storage StorageLayer
+	wal     WALLayer
 	logger  *slog.Logger
 }
 
@@ -21,13 +22,21 @@ type StorageLayer interface {
 	Del(ctx context.Context, key string) error
 }
 
-func NewDatabase(compute *compute.Compute, storage StorageLayer, logger *slog.Logger) (*Database, error) {
+type WALLayer interface {
+	Write(ctx context.Context, log string)
+}
+
+func NewDatabase(compute *compute.Compute, storage StorageLayer, wal WALLayer, logger *slog.Logger) (*Database, error) {
 	if compute == nil {
 		return nil, errInvalidCompute
 	}
 
 	if storage == nil {
 		return nil, errInvalidStorage
+	}
+
+	if wal == nil {
+		return nil, errInvalidWAL
 	}
 
 	if logger == nil {
@@ -37,11 +46,12 @@ func NewDatabase(compute *compute.Compute, storage StorageLayer, logger *slog.Lo
 	return &Database{
 		compute: compute,
 		storage: storage,
+		wal:     wal,
 		logger:  logger,
 	}, nil
 }
 
-func (d Database) Execute(ctx context.Context, commandStr string) (*ports.Result, error) {
+func (d *Database) Execute(ctx context.Context, commandStr string) (*ports.Result, error) {
 	logAttrs := []any{
 		slog.String("component", "database"),
 		slog.String("method", "Execute"),
@@ -54,10 +64,12 @@ func (d Database) Execute(ctx context.Context, commandStr string) (*ports.Result
 		return nil, err
 	}
 
+	d.WriteAheadLog(ctx, command)
+
 	return d.executeCommand(ctx, command)
 }
 
-func (d Database) executeCommand(ctx context.Context, command *compute.Command) (*ports.Result, error) {
+func (d *Database) executeCommand(ctx context.Context, command *compute.Command) (*ports.Result, error) {
 	logAttrs := []any{
 		slog.String("component", "database"),
 		slog.String("method", "executeCommand"),
@@ -91,4 +103,19 @@ func (d Database) executeCommand(ctx context.Context, command *compute.Command) 
 	return &ports.Result{
 		Msg: res,
 	}, nil
+}
+
+func (d *Database) WriteAheadLog(ctx context.Context, command *compute.Command) {
+	var log string
+
+	switch {
+	case command.Type.IsSet():
+		log = fmt.Sprintf("SET %s %s", command.Arguments.Key, command.Arguments.Value)
+	case command.Type.IsDel():
+		log = fmt.Sprintf("DEL %s", command.Arguments.Key)
+	default:
+		return
+	}
+
+	d.wal.Write(ctx, log)
 }

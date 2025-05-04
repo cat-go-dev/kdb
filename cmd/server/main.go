@@ -12,6 +12,7 @@ import (
 	"kdb/internal/database/compute"
 	"kdb/internal/database/storage"
 	"kdb/internal/database/storage/engine"
+	"kdb/internal/database/wal"
 	logger "kdb/internal/logs"
 	"kdb/internal/network/tcp"
 )
@@ -62,7 +63,15 @@ func main() {
 		return
 	}
 
-	database, err := database.NewDatabase(compute, storage, logger)
+	wal, err := wal.NewWAL(cfg, logger)
+	if err != nil {
+		wErr := fmt.Errorf("creating wal: %w", err)
+		logger.ErrorContext(ctx, wErr.Error())
+		return
+	}
+	wal.Run(ctx)
+
+	database, err := database.NewDatabase(compute, storage, wal, logger)
 	if err != nil {
 		wErr := fmt.Errorf("creating database: %w", err)
 		logger.ErrorContext(ctx, wErr.Error())

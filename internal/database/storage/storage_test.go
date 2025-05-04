@@ -1,14 +1,14 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"kdb/internal/database/storage/mocks"
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"kdb/internal/utils"
+	"kdb/mocks"
 )
 
 func TestNewStorageWithEmptyLogger(t *testing.T) {
@@ -22,12 +22,13 @@ func TestNewStorageWithEmptyLogger(t *testing.T) {
 func TestGetSuccess(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 	value := "true"
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	logger := utils.NewMockedLogger()
+
+	st, _ := NewStorage(engine, logger)
 
 	engine.EXPECT().Get(ctx, key).Return(value, nil)
 
@@ -40,13 +41,12 @@ func TestGetSuccess(t *testing.T) {
 func TestGetError(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 	value := ""
 	expectedErr := fmt.Errorf("engine error")
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	st, _ := NewStorage(engine, utils.NewMockedLogger())
 
 	engine.EXPECT().Get(ctx, key).Return(value, expectedErr)
 
@@ -59,12 +59,11 @@ func TestGetError(t *testing.T) {
 func TestSetSuccess(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 	value := "true"
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	st, _ := NewStorage(engine, utils.NewMockedLogger())
 
 	engine.EXPECT().Set(ctx, key, value).Return(nil)
 
@@ -76,13 +75,12 @@ func TestSetSuccess(t *testing.T) {
 func TestSetError(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 	value := "true"
 	expextedErr := fmt.Errorf("engine error")
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	st, _ := NewStorage(engine, utils.NewMockedLogger())
 
 	engine.EXPECT().Set(ctx, key, value).Return(expextedErr)
 
@@ -94,11 +92,10 @@ func TestSetError(t *testing.T) {
 func TestDelSuccess(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	st, _ := NewStorage(engine, utils.NewMockedLogger())
 
 	engine.EXPECT().Del(ctx, key).Return(nil)
 
@@ -110,12 +107,11 @@ func TestDelSuccess(t *testing.T) {
 func TestDel(t *testing.T) {
 	ctx := context.Background()
 	engine := mocks.NewEngineLayer(t)
-	buf := new(bytes.Buffer)
 
 	key := "val"
 	expextedErr := fmt.Errorf("engine error")
 
-	st, _ := NewStorage(engine, slog.New(slog.NewTextHandler(buf, nil)))
+	st, _ := NewStorage(engine, utils.NewMockedLogger())
 
 	engine.EXPECT().Del(ctx, key).Return(expextedErr)
 
